@@ -1,5 +1,5 @@
 import streamlit as st
-from openai import OpenAI
+import openai
 import os
 import base64
 from PIL import Image
@@ -10,7 +10,8 @@ from collections import Counter
 import re
 
 # Set your OpenAI API Key (or use environment variable)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
 st.set_page_config(page_title="Return Grading AI Demo", layout="wide")
 st.title("🎯 Smart Return Grading System")
 
@@ -53,7 +54,7 @@ if uploaded_files:
             image_bytes = uploaded_file.read()
             data_url = image_to_data_url(image_bytes)
 
-            response = client.chat.completions.create(
+            response = openai.ChatCompletion.create(
                 model="gpt-4o",
                 messages=[
                     {"role": "system", "content": "You are an AI that assesses returned products for condition."},
