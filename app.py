@@ -2,11 +2,12 @@ import streamlit as st
 import openai
 import os
 import base64
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 import io
 import json
 import ast
 import re
+import imghdr
 
 # Set your OpenAI API Key (or use environment variable)
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -27,7 +28,7 @@ if "last_uploaded" not in st.session_state:
     st.session_state.result_json = None
 
 uploaded_files = st.file_uploader(
-    "📤 Upload multiple images of a single product (JPG, JPEG, PNG)",
+    "📄 Upload multiple images of a single product (JPG, JPEG, PNG)",
     type=["jpg", "jpeg", "png"],
     accept_multiple_files=True,
     key="file_uploader"
@@ -52,46 +53,62 @@ if uploaded_files and uploaded_files != st.session_state.last_uploaded:
     image_blocks = []
 
     for uploaded_file in uploaded_files:
-        st.image(uploaded_file, caption=uploaded_file.name, use_container_width=True)
-        image_bytes = uploaded_file.read()
-        data_url = image_to_data_url(image_bytes)
-        image_blocks.append({"type": "image_url", "image_url": {"url": data_url}})
+        try:
+            image_bytes = uploaded_file.read()
 
-    with st.spinner("Analyzing all images together..."):
-        response = openai.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are an AI that assesses returned products for condition and validates image authenticity."},
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": (
-                                "Analyze these images of a single returned product and determine its return condition:\n"
-                                "- Is the product new, like new, used, or damaged?\n"
-                                "- Are tags or packaging present?\n"
-                                "- Are there visible signs of wear or damage?\n"
-                                "- Based on metadata and visual cues, does the image appear to be taken by a real camera or is it AI-generated / sourced from the internet?\n\n"
-                                "Return a JSON object with:\n"
-                                "{\n"
-                                "  'condition': 'new' | 'like new' | 'used' | 'damaged',\n"
-                                "  'reason': '<short reason>',\n"
-                                "  'action': 'Sell as New | Sell as Used | Charge Fee | Route to Refurb | Route to Donation',\n"
-                                "  'next_step': 'Send to FC (new) | Send to Refurb (used) | Send to Liquidation (damaged)',\n"
-                                "  'image_source': 'phone camera' | 'AI-generated' | 'internet image',\n"
-                                "  'image_authenticity_reason': '<brief explanation>'\n"
-                                "}"
-                            )
-                        },
-                        *image_blocks
-                    ]
-                }
-            ]
-        )
+            # Validate image format
+            file_type = imghdr.what(None, h=image_bytes)
+            if file_type not in ["jpeg", "png"]:
+                st.warning(f"⚠️ Skipping file '{uploaded_file.name}' — unsupported format. Only JPG, JPEG, PNG allowed.")
+                continue
 
-        result_text = response.choices[0].message.content.strip()
-        st.session_state.result_json = clean_json_response(result_text)
+            img = Image.open(io.BytesIO(image_bytes))
+            st.image(img, caption=uploaded_file.name, use_container_width=True)
+            data_url = image_to_data_url(image_bytes)
+            image_blocks.append({"type": "image_url", "image_url": {"url": data_url}})
+        except UnidentifiedImageError:
+            st.warning(f"⚠️ Skipping file '{uploaded_file.name}' - not a valid image.")
+            continue
+        except Exception as e:
+            st.warning(f"⚠️ Error processing file '{uploaded_file.name}': {str(e)}")
+            continue
+
+    if image_blocks:
+        with st.spinner("Analyzing all images together..."):
+            response = openai.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are an AI that assesses returned products for condition and validates image authenticity."},
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    "Analyze these images of a single returned product and determine its return condition:\n"
+                                    "- Is the product new, like new, used, or damaged?\n"
+                                    "- Are tags or packaging present?\n"
+                                    "- Are there visible signs of wear or damage?\n"
+                                    "- Based on metadata and visual cues, does the image appear to be taken by a real camera or is it AI-generated / sourced from the internet?\n\n"
+                                    "Return a JSON object with:\n"
+                                    "{\n"
+                                    "  'condition': 'new' | 'like new' | 'used' | 'damaged',\n"
+                                    "  'reason': '<short reason>',\n"
+                                    "  'action': 'Sell as New | Sell as Used | Charge Fee | Route to Refurb | Route to Donation',\n"
+                                    "  'next_step': 'Send to FC (new) | Send to Refurb (used) | Send to Liquidation (damaged)',\n"
+                                    "  'image_source': 'phone camera' | 'AI-generated' | 'internet image',\n"
+                                    "  'image_authenticity_reason': '<brief explanation>'\n"
+                                    "}"
+                                )
+                            },
+                            *image_blocks
+                        ]
+                    }
+                ]
+            )
+
+            result_text = response.choices[0].message.content.strip()
+            st.session_state.result_json = clean_json_response(result_text)
 
 if st.session_state.result_json:
     st.markdown("---")
