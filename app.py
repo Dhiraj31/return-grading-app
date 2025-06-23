@@ -7,7 +7,6 @@ import io
 import json
 import ast
 import re
-import imghdr
 
 # Set your OpenAI API Key (or use environment variable)
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -56,19 +55,19 @@ if uploaded_files and uploaded_files != st.session_state.last_uploaded:
         try:
             image_bytes = uploaded_file.read()
 
-            # Validate image format
-            file_type = imghdr.what(None, h=image_bytes)
-            if file_type not in ["jpeg", "png"]:
-                st.warning(f"⚠️ Skipping file '{uploaded_file.name}' — unsupported format. Only JPG, JPEG, PNG allowed.")
+            # Validate image format using PIL
+            try:
+                img = Image.open(io.BytesIO(image_bytes))
+                if img.format.lower() not in ["jpeg", "jpg", "png"]:
+                    st.warning(f"⚠️ Skipping file '{uploaded_file.name}' — unsupported format. Only JPG, JPEG, PNG allowed.")
+                    continue
+            except UnidentifiedImageError:
+                st.warning(f"⚠️ Skipping file '{uploaded_file.name}' - not a valid image.")
                 continue
 
-            img = Image.open(io.BytesIO(image_bytes))
             st.image(img, caption=uploaded_file.name, use_container_width=True)
             data_url = image_to_data_url(image_bytes)
             image_blocks.append({"type": "image_url", "image_url": {"url": data_url}})
-        except UnidentifiedImageError:
-            st.warning(f"⚠️ Skipping file '{uploaded_file.name}' - not a valid image.")
-            continue
         except Exception as e:
             st.warning(f"⚠️ Error processing file '{uploaded_file.name}': {str(e)}")
             continue
