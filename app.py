@@ -10,7 +10,7 @@ from collections import Counter
 import re
 
 # Set your OpenAI API Key (or use environment variable)
-openai.api_key = os.getenv("OPENAI_API_KEY") or "sk-...your-key..."
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 st.set_page_config(page_title="Return Grading AI Demo", layout="wide")
 st.title("🎯 Smart Return Grading System")
