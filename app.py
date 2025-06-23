@@ -6,7 +6,6 @@ from PIL import Image
 import io
 import json
 import ast
-from collections import Counter
 import re
 
 # Set your OpenAI API Key (or use environment variable)
@@ -22,13 +21,16 @@ Welcome to the **AI-powered product return grading demo**. Upload multiple image
 - Recommend the next action (e.g., sell, refurb, or charge fee)
 """)
 
+if "last_uploaded" not in st.session_state:
+    st.session_state.last_uploaded = None
+    st.session_state.result_json = None
+
 uploaded_files = st.file_uploader(
     "📤 Upload multiple images of a single product (JPG, JPEG, PNG)",
     type=["jpg", "jpeg", "png"],
-    accept_multiple_files=True
+    accept_multiple_files=True,
+    key="file_uploader"
 )
-
-results = []
 
 def image_to_data_url(image_bytes):
     base64_str = base64.b64encode(image_bytes).decode("utf-8")
@@ -41,7 +43,9 @@ def clean_json_response(response_text):
     except:
         return None
 
-if uploaded_files:
+if uploaded_files and uploaded_files != st.session_state.last_uploaded:
+    st.session_state.last_uploaded = uploaded_files
+    st.session_state.result_json = None
     st.markdown("---")
     st.header("🔍 AI Inspection in Progress")
     image_blocks = []
@@ -83,17 +87,15 @@ if uploaded_files:
         )
 
         result_text = response.choices[0].message.content.strip()
-        result_json = clean_json_response(result_text)
+        st.session_state.result_json = clean_json_response(result_text)
 
-        if result_json:
-            results.append(result_json)
-
+if st.session_state.result_json:
     st.markdown("---")
     st.header("📊 AI Grading Result")
-    for res in results:
-        st.markdown(f"**Condition:** `{res['condition']}`")
-        st.markdown(f"**Why it seems {res['condition']}:** {res['reason']}")
-        st.markdown(f"**Recommended Action:** 🚚 {res['action']}")
-        st.markdown(f"**Next Step:** 🏷️ {res['next_step']}")
+    res = st.session_state.result_json
+    st.markdown(f"**Condition:** `{res['condition']}`")
+    st.markdown(f"**Why it seems {res['condition']}:** {res['reason']}")
+    st.markdown(f"**Recommended Action:** 🚚 {res['action']}")
+    st.markdown(f"**Next Step:** 🏷️ {res['next_step']}")
 
 st.caption("This is a prototype demo for AI-powered return grading. Built with ❤️ by Dhiraj.")
