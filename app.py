@@ -17,6 +17,7 @@ st.title("🎯 Smart Return Grading System")
 st.markdown("""
 Welcome to the **AI-powered product return grading demo**. Upload multiple images of a returned product and let the AI:
 - Assess the product condition
+- Detect if the images are from a real camera or generated/downloaded
 - Provide a reasoning summary
 - Recommend the next action (e.g., sell, refurb, or charge fee)
 """)
@@ -60,7 +61,7 @@ if uploaded_files and uploaded_files != st.session_state.last_uploaded:
         response = openai.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are an AI that assesses returned products for condition."},
+                {"role": "system", "content": "You are an AI that assesses returned products for condition and validates image authenticity."},
                 {
                     "role": "user",
                     "content": [
@@ -70,13 +71,16 @@ if uploaded_files and uploaded_files != st.session_state.last_uploaded:
                                 "Analyze these images of a single returned product and determine its return condition:\n"
                                 "- Is the product new, like new, used, or damaged?\n"
                                 "- Are tags or packaging present?\n"
-                                "- Are there visible signs of wear or damage?\n\n"
+                                "- Are there visible signs of wear or damage?\n"
+                                "- Based on metadata and visual cues, does the image appear to be taken by a real camera or is it AI-generated / sourced from the internet?\n\n"
                                 "Return a JSON object with:\n"
                                 "{\n"
                                 "  'condition': 'new' | 'like new' | 'used' | 'damaged',\n"
                                 "  'reason': '<short reason>',\n"
                                 "  'action': 'Sell as New | Sell as Used | Charge Fee | Route to Refurb | Route to Donation',\n"
-                                "  'next_step': 'Send to FC (new) | Send to Refurb (used) | Send to Liquidation (damaged)'\n"
+                                "  'next_step': 'Send to FC (new) | Send to Refurb (used) | Send to Liquidation (damaged)',\n"
+                                "  'image_source': 'phone camera' | 'AI-generated' | 'internet image',\n"
+                                "  'image_authenticity_reason': '<brief explanation>'\n"
                                 "}"
                             )
                         },
@@ -97,5 +101,6 @@ if st.session_state.result_json:
     st.markdown(f"**Why it seems {res['condition']}:** {res['reason']}")
     st.markdown(f"**Recommended Action:** 🚚 {res['action']}")
     st.markdown(f"**Next Step:** 🏷️ {res['next_step']}")
+    st.markdown(f"**Image Source:** 📷 `{res['image_source']}` — {res['image_authenticity_reason']}")
 
 st.caption("This is a prototype demo for AI-powered return grading. Built with ❤️ by Dhiraj.")
