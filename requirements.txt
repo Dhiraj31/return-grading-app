@@ -1,4 +1,4 @@
-streamlit
-openai
-pillow
-imghdr
+streamlit==1.35.0
+openai==1.14.2
+pillow==11.2.0
+
